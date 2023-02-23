@@ -3,11 +3,11 @@ from graphviz import Digraph
 
 # Definimos la clase Node para representar los nodos del AFN
 class Node:
-    def __init__(self, left=None, right=None, label=None, id=None):
-        self.left = left
-        self.right = right
+    def __init__(self, label=None, edge1=None, edge2=None):
+        self.id = id(self)
         self.label = label
-        self.id = id
+        self.edge1 = edge1
+        self.edge2 = edge2
 
 # Definimos la clase NFA para representar el AFN
 class NFA:
@@ -15,35 +15,20 @@ class NFA:
         self.start = start
         self.accept = accept
 
-    # Función para generar el grafo del AFN en formato JSON
     def to_graph(self):
         graph = {}
-        queue = [self.start]
-        node_id = 0
-        while queue:
-            node = queue.pop(0)
-            if node.id is None:
-                node.id = node_id
-                node_id += 1
-            if node.label is not None:
-                graph[node.id] = {'label': node.label, 'edges': []}
-            if node.left is not None:
-                graph[node.id] = {'label': None, 'edges': []}
-                graph[node.left.id] = {'label': None, 'edges': []}
-                graph[node.id]['edges'].append({'to': node.left.id, 'label': 'ε'})
-                queue.append(node.left)
-            if node.right is not None:
-                graph[node.right.id] = {'label': None, 'edges': []}
-                graph[node.id]['edges'].append({'to': node.right.id, 'label': 'ε'})
-                queue.append(node.right)
-            if node.edge is not None:
-                graph[node.edge.id] = {'label': None, 'edges': []}
-                graph[node.id]['edges'].append({'to': node.edge.id, 'label': node.label})
-                queue.append(node.edge)
-            if node.edge2 is not None:
-                graph[node.edge2.id] = {'label': None, 'edges': []}
-                graph[node.id]['edges'].append({'to': node.edge2.id, 'label': 'ε'})
-                queue.append(node.edge2)
+        stack = [self.start]
+        while stack:
+            node = stack.pop()
+            if node.id not in graph:
+                edges = []
+                if node.edge1 is not None:
+                    edges.append({'label': node.edge1.label, 'to': node.edge1.to.id})
+                    stack.append(node.edge1.to)
+                if node.edge2 is not None:
+                    edges.append({'label': node.edge2.label, 'to': node.edge2.to.id})
+                    stack.append(node.edge2.to)
+                graph[node.id] = {'label': node.label, 'edges': edges}
         return graph
 
 # Definimos la función que convierte una expresión regular en notación infix a notación postfix
@@ -74,7 +59,6 @@ def infix_to_postfix(infix):
         postfix.append(stack.pop())
     return ' '.join(postfix)
 
-# Definimos la función que convierte una expresión regular en notación postfix en un AFN
 def regex_to_nfa(regex):
     # Creamos una pila para almacenar los fragmentos de AFN
     stack = []
@@ -85,16 +69,16 @@ def regex_to_nfa(regex):
         if token.isalpha():
             # Si el token es un símbolo del alfabeto, creamos un fragmento de AFN básico
             accept = Node(label=token)
-            start = Node(edge=accept)
+            start = Node(edge1=accept, edge2=None)
             stack.append(NFA(start=start, accept=accept))
         elif token == '*':
             # Si el token es un operador de cierre de Kleene, aplicamos la operación a un fragmento de AFN
             nfa = stack.pop()
             accept = nfa.accept
-            start = Node(edge=nfa.start)
+            start = Node(edge1=nfa.start, edge2=None)
             accept.edge = nfa.start
-            start2 = Node(edge=start)
-            accept2 = Node(edge=start)
+            start2 = Node(edge1=start, edge2=None)
+            accept2 = Node(edge1=start, edge2=None)
             stack.append(NFA(start=start2, accept=accept2))
         elif token == '.':
             # Si el token es un operador de concatenación, concatenamos dos fragmentos de AFN
@@ -106,15 +90,14 @@ def regex_to_nfa(regex):
             # Si el token es un operador de unión, unimos dos fragmentos de AFN
             nfa2 = stack.pop()
             nfa1 = stack.pop()
-            start = Node(edge=nfa1.start)
-            start.edge2 = nfa2.start
+            start = Node(edge1=nfa1.start, edge2=nfa2.start)
             accept = Node()
-            nfa1.accept.edge = accept
-            nfa2.accept.edge = accept
+            nfa1.accept.edge1 = accept
+            nfa2.accept.edge1 = accept
             stack.append(NFA(start=start, accept=accept))
 
-    # El último elemento en la pila es el AFN completo
-    nfa = stack.pop()
+         # Al final, la pila debería tener solo un elemento que representa el AFN completo
+        return stack.pop()
 
     # Generamos el grafo del AFN en formato JSON
     graph = nfa.to_graph()
