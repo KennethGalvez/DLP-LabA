@@ -1,0 +1,5 @@
+// NFA
+digraph {
+	start [shape=point]
+	start -> <__main__.State object at 0x00000225B19D7850>
+}

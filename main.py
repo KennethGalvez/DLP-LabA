@@ -1,123 +1,148 @@
-import json
 from graphviz import Digraph
+from collections import defaultdict
 
-# Definimos la clase Node para representar los nodos del AFN
-class Node:
-    def __init__(self, label=None, edge1=None, edge2=None):
-        self.id = id(self)
-        self.label = label
-        self.edge1 = edge1
-        self.edge2 = edge2
+# Definir la precedencia de los operadores
+precedence = {'*': 3, '+': 2, '.': 1}
 
-# Definimos la clase NFA para representar el AFN
-class NFA:
-    def __init__(self, start=None, accept=None):
-        self.start = start
-        self.accept = accept
-
-    def to_graph(self):
-        graph = {}
-        stack = [self.start]
-        while stack:
-            node = stack.pop()
-            if node.id not in graph:
-                edges = []
-                if node.edge1 is not None:
-                    edges.append({'label': node.edge1.label, 'to': node.edge1.to.id})
-                    stack.append(node.edge1.to)
-                if node.edge2 is not None:
-                    edges.append({'label': node.edge2.label, 'to': node.edge2.to.id})
-                    stack.append(node.edge2.to)
-                graph[node.id] = {'label': node.label, 'edges': edges}
-        return graph
-
-# Definimos la función que convierte una expresión regular en notación infix a notación postfix
 def infix_to_postfix(infix):
-    # Definimos los operadores y sus precedencias
-    operators = {'*': 100, '.': 80, '|': 60, '(': 40, ')': 20}
-    # Creamos una pila para almacenar los operadores
+    # Inicializar una pila y una lista de salida vacías
     stack = []
-    # Creamos una lista para almacenar la expresión en notación postfix
-    postfix = []
-    # Dividimos la expresión infix en tokens
-    tokens = infix.split()
-    # Recorremos los tokens de izquierda a derecha
+    output = []
+    # Convertir la expresión en una lista de tokens
+    tokens = list(infix)
+
     for token in tokens:
-        if token.isalpha():
-            postfix.append(token)
+        if token.isalpha() or token.isdigit():
+            # Si el token es un carácter o un dígito, agregarlo a la lista de salida
+            output.append(token)
+        elif token in '*+.':
+            # Si el token es un operador, sacar los operadores de mayor o igual precedencia de la pila y agregarlos a la lista de salida
+            while stack and stack[-1] != '(' and precedence[token] <= precedence.get(stack[-1], 0):
+                output.append(stack.pop())
+            # Agregar el operador a la pila
+            stack.append(token)
         elif token == '(':
+            # Si el token es un paréntesis izquierdo, agregarlo a la pila
             stack.append(token)
         elif token == ')':
-            while stack[-1] != '(':
-                postfix.append(stack.pop())
+            # Si el token es un paréntesis derecho, sacar los operadores de la pila y agregarlos a la lista de salida hasta que se encuentre el paréntesis izquierdo correspondiente
+            while stack and stack[-1] != '(':
+                output.append(stack.pop())
+            # Sacar el paréntesis izquierdo de la pila
             stack.pop()
-        else:
-            while stack and operators.get(stack[-1], 0) >= operators.get(token, 0):
-                postfix.append(stack.pop())
-            stack.append(token)
+
+    # Sacar los operadores restantes de la pila y agregarlos a la lista de salida
     while stack:
-        postfix.append(stack.pop())
-    return ' '.join(postfix)
+        output.append(stack.pop())
 
-def regex_to_nfa(regex):
-    # Creamos una pila para almacenar los fragmentos de AFN
+    # Convertir la lista de salida en una cadena y devolverla
+    return ''.join(output)
+
+infix_regex = '(a+b)*.c'
+postfix_regex = infix_to_postfix(infix_regex)
+
+class State:
+    """Representa un estado en un autómata finito no determinista."""
+
+    count = 0
+
+    def __init__(self):
+        """Inicializa un nuevo estado."""
+        self.transitions = {}
+        self.epsilon_transitions = set()
+        self.number = State.count
+        State.count += 1
+
+    def add_transition(self, symbol, state):
+        """Agrega una transición del estado actual al estado dado con el símbolo dado."""
+        if symbol not in self.transitions:
+            self.transitions[symbol] = set()
+        self.transitions[symbol].add(state)
+
+    def add_epsilon_transition(self, state):
+        """Agrega una transición épsilon del estado actual al estado dado."""
+        self.epsilon_transitions.add(state)
+
+class NFA:
+    """Representa un autómata finito no determinista."""
+
+    def __init__(self, start_state, accept_states):
+        """Inicializa un nuevo autómata finito no determinista con el estado inicial y los estados de aceptación dados."""
+        self.start_state = start_state
+        self.accept_states = accept_states
+        self.transitions = defaultdict(lambda: defaultdict(set))
+        
+    def match(self, string):
+        """Determina si el autómata acepta la cadena dada."""
+        current_states = set([self.start_state])
+        for symbol in string:
+            next_states = set()
+            for state in current_states:
+                if symbol in state.transitions:
+                    next_states.update(state.transitions[symbol])
+            current_states = next_states
+        return any(state in self.accept_states for state in current_states)
+
+def postfix_to_nfa(postfix_regex):
     stack = []
-    # Dividimos la expresión postfix en tokens
-    tokens = regex.split()
-    # Recorremos los tokens de izquierda a derecha
-    for token in tokens:
-        if token.isalpha():
-            # Si el token es un símbolo del alfabeto, creamos un fragmento de AFN básico
-            accept = Node(label=token)
-            start = Node(edge1=accept, edge2=None)
-            stack.append(NFA(start=start, accept=accept))
-        elif token == '*':
-            # Si el token es un operador de cierre de Kleene, aplicamos la operación a un fragmento de AFN
-            nfa = stack.pop()
-            accept = nfa.accept
-            start = Node(edge1=nfa.start, edge2=None)
-            accept.edge = nfa.start
-            start2 = Node(edge1=start, edge2=None)
-            accept2 = Node(edge1=start, edge2=None)
-            stack.append(NFA(start=start2, accept=accept2))
-        elif token == '.':
-            # Si el token es un operador de concatenación, concatenamos dos fragmentos de AFN
-            nfa2 = stack.pop()
-            nfa1 = stack.pop()
-            nfa1.accept.edge = nfa2.start
-            stack.append(NFA(start=nfa1.start, accept=nfa2.accept))
-        elif token == '|':
-            # Si el token es un operador de unión, unimos dos fragmentos de AFN
-            nfa2 = stack.pop()
-            nfa1 = stack.pop()
-            start = Node(edge1=nfa1.start, edge2=nfa2.start)
-            accept = Node()
-            nfa1.accept.edge1 = accept
-            nfa2.accept.edge1 = accept
-            stack.append(NFA(start=start, accept=accept))
+    for symbol in postfix_regex:
+        if symbol.isalpha() or symbol.isdigit():
+            state = State()
+            state.add_transition(symbol, State())
+            stack.append(state)
+        elif symbol == '*':
+            if len(stack) < 1:
+                raise ValueError("Invalid regular expression")
+            state = State()
+            state.add_epsilon_transition(stack[-1])
+            stack[-1].add_epsilon_transition(state)
+            stack[-1] = state
+        elif symbol == '+':
+            if len(stack) < 2:
+                raise ValueError("Invalid regular expression")
+            second_state = stack.pop()
+            first_state = stack[-1]
+            state = State()
+            state.add_epsilon_transition(first_state)
+            state.add_epsilon_transition(second_state)
+            stack[-1] = state
+        elif symbol == '.':
+            if len(stack) < 2:
+                raise ValueError("Invalid regular expression")
+            second_state = stack.pop()
+            first_state = stack[-1]
+            first_state.add_epsilon_transition(second_state)
+        elif symbol == '?':
+            if len(stack) < 1:
+                raise ValueError("Invalid regular expression")
+            state = State()
+            state.add_epsilon_transition(stack[-1])
+            state.add_epsilon_transition(State())
+            stack[-1] = state
 
-         # Al final, la pila debería tener solo un elemento que representa el AFN completo
-        return stack.pop()
+    accept_state = stack.pop()
+    start_state = State()
+    start_state.add_epsilon_transition(accept_state)
 
-    # Generamos el grafo del AFN en formato JSON
-    graph = nfa.to_graph()
-    with open('nfa.json', 'w') as f:
-        json.dump(graph, f)
+    return NFA(start_state, set([accept_state]))
 
-    # Dibujamos el diagrama de transición de estados del autómata utilizando la biblioteca graphviz
+def visualize_nfa(nfa):
     dot = Digraph(comment='NFA')
-    for node_id in graph:
-        label = graph[node_id]['label'] if graph[node_id]['label'] is not None else ''
-        shape = 'doublecircle' if node_id == nfa.accept.id else 'circle'
-        dot.node(str(node_id), label=label, shape=shape)
-    for node_id in graph:
-        for edge in graph[node_id]['edges']:
-            dot.edge(str(node_id), str(edge['to']), label=edge['label'])
-    dot.render('nfa', view=True)
-    
-    return nfa
 
-# Ejemplo de uso
-r = '( a | b )* c'
-r_postfix = infix_to_postfix(r)
-nfa = regex_to_nfa(r_postfix)
+    for state in nfa.transitions.keys():
+        dot.node(str(state), shape='circle')
+        if state in nfa.accept_states:
+            dot.node(str(state), shape='doublecircle')
+
+    dot.node('start', shape='point')
+    dot.edge('start', str(nfa.start_state))
+
+    for state in nfa.transitions.keys():
+        for symbol in nfa.transitions[state]:
+            for destination in nfa.transitions[state][symbol]:
+                dot.edge(str(state), str(destination), label=symbol)
+
+    dot.render('nfa.gv', view=True)
+
+nfa = postfix_to_nfa(postfix_regex)
+visualize_nfa(nfa)
