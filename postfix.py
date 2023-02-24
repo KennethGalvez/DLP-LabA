@@ -1,14 +1,14 @@
-# Definir la precedencia de los operadores
+# Jerarquia de los operadores
 precedence = {'*': 3, '+': 2, '.': 1}
 
 def infix_to_postfix(infix):
-    # Inicializar una pila y una lista de salida vacías
+    # Pila y  lista de salida vacías
     stack = []
     output = []
-    # Convertir la expresión en una lista de tokens
+    # listado de tokens
     tokens = list(infix)
     
-    # Validar la expresión regular
+    # Proceso para validar la expresión regular
     left_paren_count = tokens.count('(')
     right_paren_count = tokens.count(')')
     if left_paren_count != right_paren_count:

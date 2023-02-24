@@ -1,37 +1,35 @@
 from graphviz import Digraph
 
 class State:
-    """Representa un estado en un autómata finito no determinista."""
-
+    #Representa un estado en un afd
     count = 0
-
     def __init__(self):
-        """Inicializa un nuevo estado."""
+        #Inicializa un nuevo estado
         self.transitions = {}
         self.epsilon_transitions = set()
         self.number = State.count
         State.count += 1
 
     def add_transition(self, symbol, state):
-        """Agrega una transición del estado actual al estado dado con el símbolo dado."""
+        #Agrega una transición del estado a otro con el símbolo que se le de.
         if symbol not in self.transitions:
             self.transitions[symbol] = set()
         self.transitions[symbol].add(state)
 
     def add_epsilon_transition(self, state):
-        """Agrega una transición épsilon del estado actual al estado dado."""
+        #Agrega una transición épsilon de un estado a otro
         self.epsilon_transitions.add(state)
 
 class NFA:
-    """Representa un autómata finito no determinista."""
+    #Representa un autómata finito no determinista
 
     def __init__(self, start_state, accept_states):
-        """Inicializa un nuevo autómata finito no determinista con el estado inicial y los estados de aceptación dados."""
+        #Inicializa un nuevo afd con el estado inicial y los estados de aceptación
         self.start_state = start_state
         self.accept_states = accept_states
         
     def match(self, string):
-        """Determina si el autómata acepta la cadena dada."""
+        #Determina si el autómata acepta la cadena
         current_states = set([self.start_state])
         for symbol in string:
             next_states = set()
