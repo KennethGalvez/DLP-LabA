@@ -1,8 +1,6 @@
 // NFA
 digraph {
-	6 [shape=circle style=bold]
-	7 [shape=doublecircle style=bold]
-	6 -> 4 [label="ε"]
-	4 -> 5 [label=c]
-	4 -> 6 [label="ε"]
+	2 [shape=circle style=bold]
+	4 [shape=doublecircle style=bold]
+	2 -> 3 [label=b]
 }
