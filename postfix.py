@@ -1,9 +1,9 @@
 def infix_a_postfix(expresion):
-    precedencia = {'*': 3, '|': 2, '.': 1, '(': 0, ')': 0}
+    precedencia = {'*': 3, '+': 3, '|': 2, '.': 1, '(': 0, ')': 0}
     salida = []
     pila_operadores = []
 
-    for c in expresion:
+    for i, c in enumerate(expresion):
         if c.isalpha():
             salida.append(c)
         elif c == '(':
@@ -16,7 +16,10 @@ def infix_a_postfix(expresion):
                 return None
             # Eliminar el paréntesis izquierdo de la pila de operadores
             pila_operadores.pop()
-        elif c in {'*', '|', '.'}:
+        elif c in {'*', '+', '|', '.'}:
+            if i == len(expresion) - 1 and c != '*' and c != '+':
+                # Operador final inválido
+                return None
             while pila_operadores and precedencia[c] <= precedencia[pila_operadores[-1]]:
                 salida.append(pila_operadores.pop())
             pila_operadores.append(c)
