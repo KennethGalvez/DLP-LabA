@@ -3,7 +3,7 @@ from postfix import *
 
 # Uso del programa
 
-expresion_regular = 'a*b|'
+expresion_regular = '(a|b)*c'
 expresion_postfix = infix_a_postfix(expresion_regular)
 
 if expresion_postfix is not None:
