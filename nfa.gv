@@ -1,6 +1,0 @@
-// NFA
-digraph {
-	2 [shape=circle style=bold]
-	4 [shape=doublecircle style=bold]
-	2 -> 3 [label=b]
-}

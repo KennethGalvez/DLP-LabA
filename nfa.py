@@ -1,117 +1,92 @@
 from graphviz import Digraph
 
 class State:
-    #Representa un estado en un afd
-    count = 0
-    def __init__(self):
-        #Inicializa un nuevo estado
+    state_counter = 0
+
+    def __init__(self, accept_state=False):
+        self.accept_state = accept_state
         self.transitions = {}
-        self.epsilon_transitions = set()
-        self.number = State.count
-        State.count += 1
+        self.id = State.state_counter
+        State.state_counter += 1
 
     def add_transition(self, symbol, state):
-        #Agrega una transición del estado a otro con el símbolo que se le de.
         if symbol not in self.transitions:
-            self.transitions[symbol] = set()
-        self.transitions[symbol].add(state)
-
-    def add_epsilon_transition(self, state):
-        #Agrega una transición épsilon de un estado a otro
-        self.epsilon_transitions.add(state)
+            self.transitions[symbol] = []
+        self.transitions[symbol].append(state)
 
 class NFA:
-    #Representa un autómata finito no determinista
-
-    def __init__(self, start_state, accept_states):
-        #Inicializa un nuevo afd con el estado inicial y los estados de aceptación
+    def __init__(self, start_state, accept_state):
         self.start_state = start_state
-        self.accept_states = accept_states
-        
-    def match(self, string):
-        #Determina si el autómata acepta la cadena
-        current_states = set([self.start_state])
-        for symbol in string:
-            next_states = set()
-            for state in current_states:
-                if symbol in state.transitions:
-                    next_states.update(state.transitions[symbol])
-            current_states = next_states
-        return any(state in self.accept_states for state in current_states)
+        self.accept_state = accept_state
 
-def postfix_to_nfa(postfix_regex):
+    def get_states(self):
+        visited = set()
+        states = []
+
+        def dfs(state):
+            if state in visited:
+                return
+            visited.add(state)
+            states.append(state)
+            for transitions in state.transitions.values():
+                for next_state in transitions:
+                    dfs(next_state)
+
+        dfs(self.start_state)
+        return states
+
+def postfix_to_nfa(expression):
     stack = []
-    for symbol in postfix_regex:
-        if symbol.isalpha() or symbol.isdigit():
-            state = State()
-            state.add_transition(symbol, State())
-            stack.append(state)
-        elif symbol == '*':
-            if len(stack) < 1:
-                raise ValueError("Invalid regular expression")
-            state = State()
-            state.add_epsilon_transition(stack[-1])
-            stack[-1].add_epsilon_transition(state)
-            stack[-1] = state
-        elif symbol == '+':
-            if len(stack) < 2:
-                raise ValueError("Invalid regular expression")
-            second_state = stack.pop()
-            first_state = stack[-1]
-            state = State()
-            state.add_epsilon_transition(first_state)
-            state.add_epsilon_transition(second_state)
-            stack[-1] = state
-        elif symbol == '?':
-            if len(stack) < 1:
-                raise ValueError("Invalid regular expression")
-            state = State()
-            state.add_epsilon_transition(stack[-1])
-            state.add_epsilon_transition(State())
-            stack[-1] = state
-        elif symbol == '':
-            if len(stack) < 2:
-                raise ValueError("Invalid regular expression")
-            second_state = stack.pop()
-            first_state = stack[-1]
-            for c in second_state.transitions.keys():
-                first_state.add_transition(c, second_state.transitions[c])
-            for s in second_state.epsilon_transitions:
-                first_state.add_epsilon_transition(s)
+    for char in expression:
+        if char == '|':
+            right = stack.pop()
+            left = stack.pop()
+            new_start_state = State()
+            new_start_state.add_transition('ε', left.start_state)
+            new_start_state.add_transition('ε', right.start_state)
+            new_accept_state = State(accept_state=True)
+            left.accept_state.add_transition('ε', new_accept_state)
+            right.accept_state.add_transition('ε', new_accept_state)
+            stack.append(NFA(new_start_state, new_accept_state))
+        elif char == '*':
+            nfa = stack.pop()
+            new_start_state = State()
+            new_accept_state = State(accept_state=True)
+            new_start_state.add_transition('ε', nfa.start_state)
+            new_start_state.add_transition('ε', new_accept_state)
+            nfa.accept_state.add_transition('ε', nfa.start_state)
+            nfa.accept_state.add_transition('ε', new_accept_state)
+            stack.append(NFA(new_start_state, new_accept_state))
+        elif char == '.':
+            right = stack.pop()
+            left = stack.pop()
+            left.accept_state.add_transition('ε', right.start_state)
+            stack.append(NFA(left.start_state, right.accept_state))
+        else:
+            state1 = State()
+            state2 = State(accept_state=True)
+            state1.add_transition(char, state2)
+            stack.append(NFA(state1, state2))
 
-    accept_state = stack.pop()
-    start_state = State()
-    start_state.add_epsilon_transition(accept_state)
-
-    return NFA(start_state, set([accept_state]))
+    nfa = stack.pop()
+    return nfa
 
 def visualize_nfa(nfa):
-    dot = Digraph(comment='NFA')
+    graph = Digraph(format='png')
 
-    # Agregar los nodos del autómata
-    for state in nfa.start_state.epsilon_transitions:
-        dot.node(str(state.number), shape='circle', style='bold')
-    dot.node(str(nfa.start_state.number), shape='doublecircle', style='bold')
+    states = nfa.get_states()
 
-    # Agregar los arcos del autómata
-    for state in nfa.start_state.epsilon_transitions:
-        visualize_nfa_rec(dot, state, set())
-    
-    print(dot.source)
-    dot.render('nfa.gv', view=True)
-    
-def visualize_nfa_rec(dot, state, visited):
-    visited.add(state)
+    for state in states:
+        if state.accept_state:
+            graph.node(str(state.id), shape='doublecircle')
+        else:
+            graph.node(str(state.id), shape='circle')
 
-    for symbol, transitions in state.transitions.items():
-        for transition in transitions:
-            dot.edge(str(state.number), str(transition.number), label=symbol)
+    graph.edge('', str(nfa.start_state.id))
 
-            if transition not in visited:
-                visualize_nfa_rec(dot, transition, visited)
+    for state in states:
+        for symbol, transitions in state.transitions.items():
+            for next_state in transitions:
+                graph.edge(str(state.id), str(next_state.id), label=symbol)
 
-    for transition in state.epsilon_transitions:
-        dot.edge(str(state.number), str(transition.number), label='ε')
-
-        if transition not in visited:
-            visualize_nfa_rec(dot, transition, visited)
+    graph.render('nfa', view=True)
