@@ -1,0 +1,9 @@
+digraph {
+	node [shape=circle]
+	<Direc.Estado object at 0x000001B55172F880>
+	<Direc.Estado object at 0x000001B55172FA60>
+	<Direc.Estado object at 0x000001B55172FB20> [shape=doublecircle]
+	<Direc.Estado object at 0x000001B55172F970> [shape=doublecircle]
+	inicial [shape=point]
+	inicial -> <Direc.Estado object at 0x000001B55172F880>
+}
